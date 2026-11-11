@@ -61,7 +61,7 @@ body.shot .hud { display: none !important; }
   <h1>🧱 <span data-i18n="world.title">건축 월드</span></h1><span class="sub" id="count"></span>
   <div class="who" id="who"></div>
   <span class="sp"></span>
-  <button type="button" id="night" title="밤이 되면 램프가 더 잘 보여" data-i18n-title="world.nightTitle" data-i18n="world.night">🌙 밤</button>
+  <button type="button" id="night" title="밤이 되면 램프가 더 잘 보여" data-i18n-title="world.nightTitle" data-i18n="world.auto">🌓 자동</button>
   <button type="button" id="rotate" title="천천히 돌려보기" data-i18n-title="world.rotateTitle" data-i18n="world.rotate">자동 회전</button>
   <button type="button" id="home" title="처음 시점으로" data-i18n-title="world.homeTitle" data-i18n="world.home">시점 초기화</button>
   <a href="/" data-i18n="world.back">방으로</a>
@@ -239,9 +239,15 @@ const SHOT = Q.get('shot') === '1';
 if (SHOT) document.body.classList.add('shot');
 
 // Day / night.
+// mode: 'auto' follows the OS appearance (macOS flips it at sunset/sunrise), or fixed 'day' / 'night'.
+const OS_DARK = matchMedia('(prefers-color-scheme: dark)');
+let mode = 'auto';
+try { mode = localStorage.getItem('world-mode') || 'auto'; } catch { /* no storage */ }
+if (Q.has('night')) mode = Q.get('night') === '1' ? 'night' : 'day';
 let night = false;
-try { night = localStorage.getItem('world-night') === '1'; } catch { /* no storage */ }
-if (Q.has('night')) night = Q.get('night') === '1';
+function updateNight() { night = mode === 'auto' ? OS_DARK.matches : mode === 'night'; }
+updateNight();
+OS_DARK.addEventListener('change', () => { if (mode === 'auto') { updateNight(); applyNight(); } });
 function applyNight() {
   // Daylight stays low enough that a white block (≈1.4) never crosses the bloom threshold (1.5).
   hemi.intensity = night ? 0.1 : 0.9;
@@ -256,7 +262,7 @@ function applyNight() {
   if (gridLines) gridLines.material.opacity = night ? 0.1 : 0.35; // unlit lines glare at night
   document.documentElement.dataset.theme = night ? 'dark' : '';
   $('#night').classList.toggle('on', night);
-  $('#night').textContent = t(night ? 'world.day' : 'world.night');
+  $('#night').textContent = t('world.' + mode);
 }
 
 let SIZE = { x: 48, y: 32, z: 48 };
@@ -693,8 +699,9 @@ function addChat(m) {
 
 $('#rotate').onclick = (e) => { controls.autoRotate = !controls.autoRotate; e.currentTarget.classList.toggle('on', controls.autoRotate); };
 $('#night').onclick = () => {
-  night = !night;
-  try { localStorage.setItem('world-night', night ? '1' : '0'); } catch { /* no storage */ }
+  mode = mode === 'auto' ? 'day' : mode === 'day' ? 'night' : 'auto';
+  try { localStorage.setItem('world-mode', mode); } catch { /* no storage */ }
+  updateNight();
   applyNight();
 };
 
