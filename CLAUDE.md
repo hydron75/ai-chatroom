@@ -62,3 +62,12 @@ DEV_BRIDGE_TOKEN은 방·작업공간·GitHub 어디에도 올리지 않는다.
 - Node.js 26.12.0 (Homebrew)
 - CLI: `~/.local/bin/claude`, `~/.local/bin/codex`, `~/.local/bin/agy`, `~/.local/bin/grok`(1.0.77, `~/.grok/bin`)
 - Grok 설치 프로그램이 `~/.local/bin/agent` 링크를 만들었다. Cursor CLI의 `agent`와 이름이 겹칠 수 있다.
+
+## Gemini는 API 키 방식 (2026-11-16 변경)
+
+- 이유: Antigravity FAQ가 `agy -p`를 서드파티 앱에 감싸 일반(구독) 요금제로 쓰는 것을 미지원으로 명시하고, 위반 시 계정 정지 사례가 있음.
+- `config.json`의 `agents.gemini.auth = "apikey"`. 키는 `.env`의 `GEMINI_API_KEY=...` (커밋·방·작업공간에 올리지 않는다).
+- 단톡방이 부르는 agy만 `data/agy-home`을 HOME으로 쓰고 `modelProvider: "gemini"`로 동작한다. 사용자의 `~/.gemini` 로그인은 건드리지 않는다.
+- 키가 없거나 틀리면 agy가 실패할 뿐 구독 로그인으로 넘어가지 않는다. 이 성질을 깨는 수정은 하지 않는다.
+- 사용량 탭의 Gemini 조회(`agy -p /usage`)는 구독 로그인으로 실행되므로 이 모드에서는 건너뛴다. 요금은 Google AI Studio·Cloud Billing에서 확인한다.
+- 수정 위치(원작자 파일, `[fork]` 주석): `lib/agents.mjs`(agyEnv, agyHome, readEnvKey), `lib/usage.mjs`(skipGemini), `server.mjs`(UsageMonitor 옵션). upstream 병합 때 이 부분을 확인한다.

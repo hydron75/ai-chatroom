@@ -1361,7 +1361,10 @@ setInterval(tick, 500);
 // ---------------------------------------------------------------------------
 // Usage limits: poll every usagePollSec while the room is on, usagePollIdleSec when off.
 
-const usage = new UsageMonitor(HOME_DIR, adapters.bins, { onUpdate: () => broadcast('usage', usageView()) });
+const usage = new UsageMonitor(HOME_DIR, adapters.bins, {
+  onUpdate: () => broadcast('usage', usageView()),
+  skipGemini: adapters.geminiApiKeyMode(), // [fork]
+});
 function usageView() {
   const v = usage.view();
   const now = Date.now();
