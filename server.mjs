@@ -608,7 +608,7 @@ async function ask(a, reason, openFile, deep = null) {
   pushUsageSoon();
   const res = await adapters.chat(a.id, brief, turn, { boost: !!deep, images });
   a.lastMs = res.ms;
-  store.log(a.id, `turn reason=${reason} model=${deep ? `${boostLabel(a.id)} BOOST` : defaultLabel(a.id)}${images.length ? ` images=${images.length}` : ''} ms=${res.ms} ok=${res.ok}\n${res.text.slice(0, 4000)}${res.detail ? `\nDETAIL ${res.detail}` : ''}`);
+  store.log(a.id, `turn reason=${reason} model=${deep ? `${boostLabel(a.id)} BOOST` : defaultLabel(a.id)}${images.length ? ` images=${images.length}` : ''} ms=${res.ms} ok=${res.ok}${res.usage ? ` tokens in=${res.usage.input} out=${res.usage.output} think=${res.usage.thoughts}` : ''}\n${res.text.slice(0, 4000)}${res.detail ? `\nDETAIL ${res.detail}` : ''}`);
   if (!res.ok) throw new Error(res.detail || 'empty reply');
   const act = parseAction(res.text);
   if (!act) store.log(a.id, 'could not parse a JSON action');
@@ -1363,7 +1363,7 @@ setInterval(tick, 500);
 
 const usage = new UsageMonitor(HOME_DIR, adapters.bins, {
   onUpdate: () => broadcast('usage', usageView()),
-  skipGemini: adapters.geminiApiKeyMode(), // [fork]
+  skipGemini: adapters.geminiApiKeyMode() || adapters.geminiApiMode(), // [fork]
 });
 function usageView() {
   const v = usage.view();

@@ -63,11 +63,19 @@ DEV_BRIDGE_TOKEN은 방·작업공간·GitHub 어디에도 올리지 않는다.
 - CLI: `~/.local/bin/claude`, `~/.local/bin/codex`, `~/.local/bin/agy`, `~/.local/bin/grok`(1.0.77, `~/.grok/bin`)
 - Grok 설치 프로그램이 `~/.local/bin/agent` 링크를 만들었다. Cursor CLI의 `agent`와 이름이 겹칠 수 있다.
 
-## Gemini는 API 키 방식 (2026-11-16 변경)
+## Gemini는 API 직접 호출 (2026-11-22 변경)
 
-- 이유: Antigravity FAQ가 `agy -p`를 서드파티 앱에 감싸 일반(구독) 요금제로 쓰는 것을 미지원으로 명시하고, 위반 시 계정 정지 사례가 있음.
-- `config.json`의 `agents.gemini.auth = "apikey"`. 키는 `.env`의 `GEMINI_API_KEY=...` (커밋·방·작업공간에 올리지 않는다).
-- 단톡방이 부르는 agy만 `data/agy-home`을 HOME으로 쓰고 `modelProvider: "gemini"`로 동작한다. 사용자의 `~/.gemini` 로그인은 건드리지 않는다.
-- 키가 없거나 틀리면 agy가 실패할 뿐 구독 로그인으로 넘어가지 않는다. 이 성질을 깨는 수정은 하지 않는다.
-- 사용량 탭의 Gemini 조회(`agy -p /usage`)는 구독 로그인으로 실행되므로 이 모드에서는 건너뛴다. 요금은 Google AI Studio·Cloud Billing에서 확인한다.
-- 수정 위치(원작자 파일, `[fork]` 주석): `lib/agents.mjs`(agyEnv, agyHome, readEnvKey), `lib/usage.mjs`(skipGemini), `server.mjs`(UsageMonitor 옵션). upstream 병합 때 이 부분을 확인한다.
+11-16의 "agy를 API 키로 감싸는 방식"을 이 방식이 대체했다. 이유: agy가 턴마다 붙이는 자체 프롬프트(약 8,700토큰) 제거, agy 의존 제거.
+(처음 agy를 구독 로그인으로 쓰지 않게 한 이유: Antigravity FAQ가 `agy -p`를 서드파티 앱에 감싸 일반 요금제로 쓰는 것을 미지원으로 명시하고, 위반 시 계정 정지 사례가 있음.)
+
+- `config.json`의 `agents.gemini.auth = "api"`이면 `lib/gemini-api.mjs`가 Gemini API(`generateContent`)를 내장 `fetch`로 직접 부른다. agy는 쓰지 않는다. 외부 패키지 없음.
+- 현재 값: `model: "gemini-3.8-flash"`(effort 생략 = 모델 기본 medium), `boost: { model: "gemini-4-hydrogen", effort: "high" }`, `imageModel: "gemini-nano-banana-2.1"`. 별칭(`-latest`)은 쓰지 않고 고정 이름만 쓴다.
+- 추론 수준: effort가 `thinkingConfig.thinkingLevel`로 간다(low/medium/high, hydrogen·neon은 xhigh). `gemini-3.8-flash`와 gemini-4 계열은 minimal 불가. 모델 ID 목록은 `GET /v1beta/models`(키 필요)로 확인한다. agy의 `-medium` 같은 접미사는 API 이름이 아니다.
+- 키는 `.env`의 `GEMINI_API_KEY=...`. 요청 헤더(`x-goog-api-key`)로만 보내고 로그·오류 문구·커밋에 남기지 않는다(오류 문구에서 키 값을 지운다).
+- 키가 없거나 틀리면 호출이 실패할 뿐 agy·구독 로그인으로 넘어가지 않는다. 이 성질을 깨는 수정은 하지 않는다.
+- 기능: 대화 턴은 방 브리프를 `systemInstruction`, 턴을 사용자 메시지로 보낸다(응답은 다른 멤버와 같이 JSON 파싱). 사진은 요청에 inline으로 포함한다. 그림은 이미지 모델 호출 결과를 `data/cwd/gemini/img-*/out.jpg`로 저장한다. 웹 검색은 `webSearch: true`일 때만 `google_search`를 켠다. agy용 프롬프트 26,000자 제한은 이 모드에서 풀려 다른 멤버와 같은 120,000자다.
+- 사용량 탭의 Gemini 조회는 건너뛴다. 대신 `data/logs/gemini.log`의 턴 줄에 `tokens in= out= think=`이 남는다. 요금은 Google AI Studio·Cloud Billing에서 확인한다.
+- 단가(2026-11-22 공식 가격 페이지, 100만 토큰당 USD): `gemini-3.8-flash` 입력 $0.75 / 출력(추론 포함) $3.75는 2026-12-31까지이고 2027-01-01부터 $1.50 / $7.50. `gemini-4-hydrogen` $1.50 / $7.50. `gemini-nano-banana-2.1` 입력 $1.50, 텍스트·추론 출력 $7.50, 이미지 출력 $30(1K 약 $0.034, 2K $0.050, 4K $0.113). Google 검색 연동은 월 5,000건 무료, 이후 1,000건당 $14.
+- 되돌리기: `auth`를 `"apikey"`(agy + 키, 전용 HOME `data/agy-home`)나 지우기(agy 구독 로그인)로 바꾸고, **모델 이름도 agy 이름으로** 돌린다(예: `gemini-3.8-flash-medium`, boost `gemini-4-hydrogen-high`; 목록은 `agy models`). `imageModel`은 지운다(agy는 `imageModel || model`을 쓴다). 서버 재시작 필요.
+- `node setup.mjs --check`의 Gemini 줄은 agy 로그인 기준이라 이 모드와 무관하다.
+- 수정 위치(`[fork]` 주석): 새 파일 `lib/gemini-api.mjs`. 원작자 파일은 `lib/agents.mjs`(import, available, maxPromptChars, geminiApiMode, chat·image의 gemini 분기, 반환값 usage, 그리고 11-16의 agyEnv·agyHome·readEnvKey), `lib/usage.mjs`(skipGemini), `server.mjs`(UsageMonitor 옵션, 턴 로그의 토큰 수). upstream 병합 때 이 부분을 확인한다.
