@@ -80,3 +80,11 @@ DEV_BRIDGE_TOKEN은 방·작업공간·GitHub 어디에도 올리지 않는다.
 - 되돌리기: `auth`를 `"apikey"`(agy + 키, 전용 HOME `data/agy-home`)나 지우기(agy 구독 로그인)로 바꾸고, **모델 이름도 agy 이름으로** 돌린다(예: `gemini-3.8-flash-medium`, boost `gemini-4-hydrogen-high`; 목록은 `agy models`). `imageModel`은 지운다(agy는 `imageModel || model`을 쓴다). 서버 재시작 필요.
 - `node setup.mjs --check`의 Gemini 줄은 agy 로그인 기준이라 이 모드와 무관하다.
 - 수정 위치(`[fork]` 주석): 새 파일 `lib/gemini-api.mjs`. 원작자 파일은 `lib/agents.mjs`(import, available, maxPromptChars, geminiApiMode, chat·image의 gemini 분기, 반환값 usage, 그리고 11-16의 agyEnv·agyHome·readEnvKey), `lib/usage.mjs`(skipGemini), `server.mjs`(UsageMonitor 옵션, 턴 로그의 토큰 수). upstream 병합 때 이 부분을 확인한다.
+
+## Gemini 오프라인 회귀 테스트
+
+- 실행(실제 API·네트워크·CLI 호출 없음, 가짜 키만 사용):
+  `env -u GEMINI_API_KEY -u GOOGLE_API_KEY -u NODE_OPTIONS node --test --test-concurrency=1 test/`
+- `test/gemini-interactions.test.mjs`(기본 42건, 2026-11-26 ChatGPT 작성 후 ecb9533 기준으로 usage 항목 보정), `test/gemini-hardening.test.mjs`(ecb9533 보강분 11건). 공용 모듈은 `test-support/`. 전부 통과해야 한다.
+- `store: false`가 빠지거나 `true`가 되면 실패한다. upstream 병합, `lib/gemini-api.mjs`·`lib/agents.mjs` 수정 뒤에는 반드시 실행한다.
+- `checks/gemini-hardening.check.mjs`는 선택 실행용이고 실패가 정상이다. H02(errors[] 진단), H04(첨부 읽기 실패), H05(이미지 쓰기 실패), H07(이미지 응답 글의 키 마스킹)은 위험이 낮아 보류했다. 고치면 해당 항목이 통과한다.
